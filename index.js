@@ -15,6 +15,7 @@ const nftDirectory = new web3.eth.Contract(nftDirectoryABI, process.env.NFT_DIRE
 
 let lastKnownLength = 0;
 const lastIndexFilePath = './lastIndex.txt';
+const processedUsersFilePath = './processedUsers.json';
 
 // Lire l'index du dernier contrat traité depuis le fichier
 function readLastIndex() {
@@ -30,28 +31,44 @@ function writeLastIndex(index) {
     fs.writeFileSync(lastIndexFilePath, index.toString(), 'utf8');
 }
 
-// Fonction initialize to take the current legnth the nft contract list
+// Lire la liste des utilisateurs traités
+function readProcessedUsers() {
+    if (fs.existsSync(processedUsersFilePath)) {
+        const data = fs.readFileSync(processedUsersFilePath, 'utf8');
+        return JSON.parse(data);
+    }
+    return {};
+}
+
+// Écrire la liste des utilisateurs traités
+function writeProcessedUsers(processedUsers) {
+    fs.writeFileSync(processedUsersFilePath, JSON.stringify(processedUsers), 'utf8');
+}
+
+// Fonction d'initialisation pour récupérer la longueur actuelle de la liste des contrats NFT
 async function initialize() {
     lastKnownLength = await nftDirectory.methods.getNftContractsArrayLength().call();
     console.log(`Initial NFT contracts length: ${lastKnownLength}`);
 }
 
-// Fonction pour tto check new created nft contracts
+// Fonction pour vérifier les nouveaux contrats NFT créés
 async function checkNewContracts() {
     const currentLength = await nftDirectory.methods.getNftContractsArrayLength().call();
     let lastIndex = readLastIndex();
+    let processedUsers = readProcessedUsers();
 
     if (currentLength > lastIndex) {
         for (let i = lastIndex; i < currentLength; i++) {
-            await processContractAtIndex(i);
+            await processContractAtIndex(i, processedUsers);
         }
         writeLastIndex(currentLength);
+        writeProcessedUsers(processedUsers);
         lastKnownLength = currentLength;
     }
 }
 
-// Fonction contract for toindex fixed 
-async function processContractAtIndex(index) {
+// Fonction pour traiter un contrat à un index donné
+async function processContractAtIndex(index, processedUsers) {
     try {
         const currentLength = await nftDirectory.methods.getNftContractsArrayLength().call();
         if (index < currentLength) {
@@ -59,7 +76,10 @@ async function processContractAtIndex(index) {
             for (const nftContractAddress of nftContracts) {
                 const nftContract = new web3.eth.Contract(nftDirectoryABI, nftContractAddress);
                 const owner = await nftContract.methods.owner().call();
-                await updateEligibility(owner);
+                if (!processedUsers[owner]) {
+                    await updateEligibility(owner);
+                    processedUsers[owner] = true;
+                }
             }
         } else {
             console.warn(`Index ${index} is out of bounds, current length is ${currentLength}`);
@@ -69,7 +89,7 @@ async function processContractAtIndex(index) {
     }
 }
 
-// Fonction update user eligibility update
+// Fonction pour mettre à jour l'éligibilité des utilisateurs
 async function updateEligibility(user) {
     const updateTx = questContract.methods.updateEligibility([user], [true]);
     const gas = await updateTx.estimateGas({ from: process.env.OWNER_ADDRESS });
@@ -88,10 +108,10 @@ async function updateEligibility(user) {
     console.log(`Eligibility updated for user: ${user}`);
 }
 
-// initiliaze and start tracking new contracts
+// Initialiser et commencer à surveiller les nouveaux contrats NFT
 initialize().then(() => {
     console.log('Initialization complete. Monitoring for new NFT contracts...');
-    setInterval(checkNewContracts, 60000); // verify every 1 minutes
+    setInterval(checkNewContracts, 60000); // Vérification toutes les minutes
 }).catch(err => {
     console.error('Initialization error:', err);
 });
