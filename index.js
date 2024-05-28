@@ -2,14 +2,14 @@ const Web3 = require('web3');
 const fs = require('fs');
 require('dotenv').config();
 
-// Charger les ABIs des contrats depuis les fichiers JSON
+// Load contract ABIs from JSON files
 const questContractABI = require('./QuestContract.json').abi;
 const nftDirectoryABI = require('./NftDirectory.json').abi;
 
-// Initialiser Web3 avec le fournisseur spécifié dans le fichier .env
+// Initialize Web3 with the provider specified in the .env file
 const web3 = new Web3(process.env.WEB3_PROVIDER);
 
-// Initialiser les instances de contrat avec leurs ABIs et adresses respectives
+// Initialize contract instances with their respective ABIs and addresses
 const questContract = new web3.eth.Contract(questContractABI, process.env.QUEST_CONTRACT_ADDRESS);
 const nftDirectory = new web3.eth.Contract(nftDirectoryABI, process.env.NFT_DIRECTORY_ADDRESS);
 
@@ -17,21 +17,23 @@ let lastKnownLength = 0;
 const lastIndexFilePath = './lastIndex.txt';
 const processedUsersFilePath = './processedUsers.json';
 
-// Lire l'index du dernier contrat traité depuis le fichier
+// Read the index of the last processed contract from the file
 function readLastIndex() {
     if (fs.existsSync(lastIndexFilePath)) {
         const lastIndex = fs.readFileSync(lastIndexFilePath, 'utf8');
+        console.log(`Read last index: ${lastIndex}`);  // Debug log
         return parseInt(lastIndex, 10);
     }
     return 0;
 }
 
-// Écrire l'index du dernier contrat traité dans le fichier
+// Write the index of the last processed contract to the file
 function writeLastIndex(index) {
+    console.log(`Writing last index: ${index}`);  // Debug log
     fs.writeFileSync(lastIndexFilePath, index.toString(), 'utf8');
 }
 
-// Lire la liste des utilisateurs traités
+// Read the list of processed users
 function readProcessedUsers() {
     if (fs.existsSync(processedUsersFilePath)) {
         const data = fs.readFileSync(processedUsersFilePath, 'utf8');
@@ -40,22 +42,24 @@ function readProcessedUsers() {
     return {};
 }
 
-// Écrire la liste des utilisateurs traités
+// Write the list of processed users
 function writeProcessedUsers(processedUsers) {
     fs.writeFileSync(processedUsersFilePath, JSON.stringify(processedUsers), 'utf8');
 }
 
-// Fonction d'initialisation pour récupérer la longueur actuelle de la liste des contrats NFT
+// Initialization function to get the current length of the NFT contracts list
 async function initialize() {
     lastKnownLength = await nftDirectory.methods.getNftContractsArrayLength().call();
     console.log(`Initial NFT contracts length: ${lastKnownLength}`);
 }
 
-// Fonction pour vérifier les nouveaux contrats NFT créés
+// Function to check for newly created NFT contracts
 async function checkNewContracts() {
     const currentLength = await nftDirectory.methods.getNftContractsArrayLength().call();
     let lastIndex = readLastIndex();
     let processedUsers = readProcessedUsers();
+
+    console.log(`Current length: ${currentLength}, Last index: ${lastIndex}`);  // Debug log
 
     if (currentLength > lastIndex) {
         for (let i = lastIndex; i < currentLength; i++) {
@@ -67,7 +71,7 @@ async function checkNewContracts() {
     }
 }
 
-// Fonction pour traiter un contrat à un index donné
+// Function to process a contract at a given index
 async function processContractAtIndex(index, processedUsers) {
     try {
         const currentLength = await nftDirectory.methods.getNftContractsArrayLength().call();
@@ -89,7 +93,7 @@ async function processContractAtIndex(index, processedUsers) {
     }
 }
 
-// Fonction pour mettre à jour l'éligibilité des utilisateurs
+// Function to update the eligibility of users
 async function updateEligibility(user) {
     const updateTx = questContract.methods.updateEligibility([user], [true]);
     const gas = await updateTx.estimateGas({ from: process.env.OWNER_ADDRESS });
@@ -108,10 +112,10 @@ async function updateEligibility(user) {
     console.log(`Eligibility updated for user: ${user}`);
 }
 
-// Initialiser et commencer à surveiller les nouveaux contrats NFT
+// Initialize and start monitoring for new NFT contracts
 initialize().then(() => {
     console.log('Initialization complete. Monitoring for new NFT contracts...');
-    setInterval(checkNewContracts, 60000); // Vérification toutes les minutes
+    setInterval(checkNewContracts, 60000); // Check every minute
 }).catch(err => {
     console.error('Initialization error:', err);
 });
