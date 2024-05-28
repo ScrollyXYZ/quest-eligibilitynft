@@ -24,7 +24,7 @@ function readLastIndex() {
         console.log(`Read last index: ${lastIndex}`);  // Debug log
         return parseInt(lastIndex, 10);
     }
-    return 0;
+    return -1; // Indicate that no index has been processed yet
 }
 
 // Write the index of the last processed contract to the file
@@ -61,11 +61,18 @@ async function checkNewContracts() {
 
     console.log(`Current length: ${currentLength}, Last index: ${lastIndex}`);  // Debug log
 
+    // Ensure lastIndex is correctly adjusted for the current length
+    if (lastIndex === -1) {
+        lastIndex = 0;
+    } else {
+        lastIndex += 1;  // Start processing from the next index
+    }
+
     if (currentLength > lastIndex) {
         for (let i = lastIndex; i < currentLength; i++) {
             await processContractAtIndex(i, processedUsers);
         }
-        writeLastIndex(currentLength);
+        writeLastIndex(currentLength - 1);
         writeProcessedUsers(processedUsers);
         lastKnownLength = currentLength;
     }
