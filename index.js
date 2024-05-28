@@ -49,21 +49,27 @@ async function checkNewContracts() {
 
 // Fonction pour mettre à jour l'éligibilité des utilisateurs
 async function updateEligibility(user) {
-    const updateTx = questContract.methods.updateEligibility([user], [true]);
-    const gas = await updateTx.estimateGas({ from: process.env.OWNER_ADDRESS });
-    const data = updateTx.encodeABI();
+    try {
+        const nonce = await web3.eth.getTransactionCount(process.env.OWNER_ADDRESS, 'pending');
+        const updateTx = questContract.methods.updateEligibility([user], [true]);
+        const gas = await updateTx.estimateGas({ from: process.env.OWNER_ADDRESS });
+        const data = updateTx.encodeABI();
 
-    const tx = {
-        to: process.env.QUEST_CONTRACT_ADDRESS,
-        data,
-        gas,
-        from: process.env.OWNER_ADDRESS
-    };
+        const tx = {
+            to: process.env.QUEST_CONTRACT_ADDRESS,
+            data,
+            gas,
+            from: process.env.OWNER_ADDRESS,
+            nonce: nonce
+        };
 
-    const signedTx = await web3.eth.accounts.signTransaction(tx, process.env.PRIVATE_KEY);
-    await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+        const signedTx = await web3.eth.accounts.signTransaction(tx, process.env.PRIVATE_KEY);
+        await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
 
-    console.log(`Eligibility updated for user: ${user}`);
+        console.log(`Eligibility updated for user: ${user}`);
+    } catch (error) {
+        console.error(`Error updating eligibility for user ${user}:`, error);
+    }
 }
 
 // Initialiser et commencer à surveiller les nouveaux contrats NFT
