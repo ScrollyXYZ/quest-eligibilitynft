@@ -64,8 +64,6 @@ async function checkNewContracts() {
     // Ensure lastIndex is correctly adjusted for the current length
     if (lastIndex === -1) {
         lastIndex = 0;
-    } else {
-        lastIndex += 1;  // Start processing from the next index
     }
 
     if (currentLength > lastIndex) {
@@ -75,6 +73,8 @@ async function checkNewContracts() {
         writeLastIndex(currentLength - 1);
         writeProcessedUsers(processedUsers);
         lastKnownLength = currentLength;
+    } else {
+        console.log(`No new contracts to process. Current length: ${currentLength}, Last index: ${lastIndex}`);
     }
 }
 
@@ -83,10 +83,13 @@ async function processContractAtIndex(index, processedUsers) {
     try {
         const currentLength = await nftDirectory.methods.getNftContractsArrayLength().call();
         if (index < currentLength) {
+            console.log(`Processing contract at index: ${index}`); // Debug log
             const nftContracts = await nftDirectory.methods.getNftContracts(index, index + 1).call();
             for (const nftContractAddress of nftContracts) {
+                console.log(`Processing NFT contract: ${nftContractAddress}`); // Debug log
                 const nftContract = new web3.eth.Contract(nftDirectoryABI, nftContractAddress);
                 const owner = await nftContract.methods.owner().call();
+                console.log(`NFT contract owner: ${owner}`); // Debug log
                 if (!processedUsers[owner]) {
                     await updateEligibility(owner);
                     processedUsers[owner] = true;
@@ -102,21 +105,25 @@ async function processContractAtIndex(index, processedUsers) {
 
 // Function to update the eligibility of users
 async function updateEligibility(user) {
-    const updateTx = questContract.methods.updateEligibility([user], [true]);
-    const gas = await updateTx.estimateGas({ from: process.env.OWNER_ADDRESS });
-    const data = updateTx.encodeABI();
+    try {
+        const updateTx = questContract.methods.updateEligibility([user], [true]);
+        const gas = await updateTx.estimateGas({ from: process.env.OWNER_ADDRESS });
+        const data = updateTx.encodeABI();
 
-    const tx = {
-        to: process.env.QUEST_CONTRACT_ADDRESS,
-        data,
-        gas,
-        from: process.env.OWNER_ADDRESS
-    };
+        const tx = {
+            to: process.env.QUEST_CONTRACT_ADDRESS,
+            data,
+            gas,
+            from: process.env.OWNER_ADDRESS
+        };
 
-    const signedTx = await web3.eth.accounts.signTransaction(tx, process.env.PRIVATE_KEY);
-    await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+        const signedTx = await web3.eth.accounts.signTransaction(tx, process.env.PRIVATE_KEY);
+        await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
 
-    console.log(`Eligibility updated for user: ${user}`);
+        console.log(`Eligibility updated for user: ${user}`);
+    } catch (error) {
+        console.error(`Error updating eligibility for user ${user}:`, error);
+    }
 }
 
 // Initialize and start monitoring for new NFT contracts
