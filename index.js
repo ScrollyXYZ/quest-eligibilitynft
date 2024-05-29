@@ -83,7 +83,7 @@ async function processContractAtIndex(index, processedUsers) {
     try {
         const currentLength = await nftDirectory.methods.getNftContractsArrayLength().call();
         if (index < currentLength) {
-            const nftContracts = await nftDirectory.methods.getNftContracts(index, Math.min(index + 1, currentLength)).call();
+            const nftContracts = await nftDirectory.methods.getNftContracts(index, index + 1).call();
             for (const nftContractAddress of nftContracts) {
                 const nftContract = new web3.eth.Contract(nftDirectoryABI, nftContractAddress);
                 const owner = await nftContract.methods.owner().call();
